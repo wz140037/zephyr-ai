@@ -1,0 +1,10 @@
+{
+  "name": "zephyr-ai",
+  "private": true,
+  "version": "0.0.0",
+  "packageManager": "pnpm@10.15.0",
+  "scripts": {
+    "dev:demos": "pnpm --filter demos dev",
+    "build:demos": "pnpm --filter demos build"
+  }
+}
