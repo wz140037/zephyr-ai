@@ -14,7 +14,7 @@ export interface ChatStreamOptions {
  */
 export async function chatAIStream(data, { onMessage, onEnd, onError }) {
 
-  const res = await fetch(`/api/ai/chat-stream?message=${encodeURIComponent(data.message)}`, {
+  const res = await fetch(`https://server.mhaibaraai.cn/zephyr-ai-service/api/ai/chat-stream?message=${encodeURIComponent(data.message)}`, {
     method: "GET",
     headers: {
       "Content-Type": "application/json"

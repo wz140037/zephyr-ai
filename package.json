@@ -7,6 +7,10 @@
     "dev:demos": "pnpm --filter demos dev",
     "build:demos": "pnpm --filter demos build",
     "docs:dev": "pnpm --filter docs docs:dev",
-    "docs:build": "pnpm --filter docs docs:build"
+    "docs:build": "pnpm --filter docs docs:build",
+    "docs:deploy": "gh-pages -d docs/.vitepress/dist -b pages -f"
+  },
+  "devDependencies": {
+    "gh-pages": "^6.3.0"
   }
 }

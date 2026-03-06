@@ -20,7 +20,7 @@ export default defineConfig({
       // 代理
       proxy: {
         '/api': {
-          target: 'http://118.89.190.159:5033',
+          target: 'https://server.mhaibaraai.cn/zephyr-ai-service',
           changeOrigin: true
         }
       }
