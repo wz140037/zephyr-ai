@@ -1,3 +1,5 @@
+import { baseURL } from "../api/config"
+
 export interface ChatRequest {
   message: string
   conversationId?: string
@@ -14,14 +16,14 @@ export interface ChatStreamOptions {
  */
 export async function chatAIStream(data, { onMessage, onEnd, onError }) {
 
-  const res = await fetch(`https://server.mhaibaraai.cn/zephyr-ai-service/api/ai/chat-stream?message=${encodeURIComponent(data.message)}`, {
+  const res = await fetch(`${baseURL}/api/ai/chat-stream?message=${encodeURIComponent(data.message)}`, {
     method: "GET",
     headers: {
       "Content-Type": "application/json"
     },
   }).catch(err => {
     onError?.(err)
-  }).finally(()=>{
+  }).finally(() => {
     onEnd?.()
   })
 

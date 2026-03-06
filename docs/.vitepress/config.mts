@@ -19,8 +19,8 @@ export default defineConfig({
       host: true,
       // 代理
       proxy: {
-        '/api': {
-          target: 'https://server.mhaibaraai.cn/zephyr-ai-service',
+        '/localhost': {
+          target: 'http://localhost:8080',
           changeOrigin: true
         }
       }
