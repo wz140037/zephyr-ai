@@ -1,27 +1,29 @@
 import { defineConfig } from 'vitepress'
 
-// https://vitepress.dev/reference/site-config
 export default defineConfig({
-  title: "zzz",
-  description: "A VitePress Site",
+  base: '/zephyr-ai/',
+  title: 'Zephyr AI',
+  description: '轻量、实用的 AI 应用示例平台',
+  lang: 'zh-CN',
+  head: [
+    ['link', { rel: 'icon', type: 'image/svg+xml', href: '/zephyr-ai/image/logo.svg' }],
+  ],
   themeConfig: {
-    // https://vitepress.dev/reference/default-theme-config
-    nav: [
-      { text: '首页', link: '/' },
-    ],
-
-    sidebar: [
-      {
-        text: 'Examples',
-        items: [
-          { text: 'Markdown Examples', link: '/markdown-examples' },
-          { text: 'Runtime API Examples', link: '/api-examples' }
-        ]
-      }
-    ],
-
+    logo: '/image/logo.svg',
     socialLinks: [
       { icon: 'github', link: 'https://github.com/vuejs/vitepress' }
     ]
+  },
+  vite: {
+    server: {
+      host: true,
+      // 代理
+      proxy: {
+        '/api': {
+          target: 'http://118.89.190.159:5033',
+          changeOrigin: true
+        }
+      }
+    }
   }
 })
