@@ -10,24 +10,36 @@ const conversationId = ref("")
 const chatRef = ref<HTMLElement>()
 
 // 访客自带 key：只存在本机 localStorage，不经过任何服务端
+// 注意：构建时 VitePress 会做 SSR，服务端没有 localStorage，必须判存在
 const KEY_STORAGE = "zephyr_ai_key"
 const needKey = authMode === "byok"
-const apiKey = ref(localStorage.getItem(KEY_STORAGE) || "")
+
+function readStoredKey() {
+  if (typeof localStorage === "undefined") return ""
+  return localStorage.getItem(KEY_STORAGE) || ""
+}
+
+function writeStoredKey(v: string) {
+  if (typeof localStorage === "undefined") return
+  if (v) localStorage.setItem(KEY_STORAGE, v)
+  else localStorage.removeItem(KEY_STORAGE)
+}
+
+const apiKey = ref(readStoredKey())
 const keyDraft = ref(apiKey.value)
 const editingKey = ref(!apiKey.value)
 
 function saveKey() {
   const v = keyDraft.value.trim()
   apiKey.value = v
-  if (v) localStorage.setItem(KEY_STORAGE, v)
-  else localStorage.removeItem(KEY_STORAGE)
+  writeStoredKey(v)
   editingKey.value = !v
 }
 
 function clearKey() {
   apiKey.value = ""
   keyDraft.value = ""
-  localStorage.removeItem(KEY_STORAGE)
+  writeStoredKey("")
   editingKey.value = true
 }
 
