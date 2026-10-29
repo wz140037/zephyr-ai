@@ -1,4 +1,4 @@
-import { baseURL, model } from "../api/config"
+import { chatEndpoint, model } from "../api/config"
 
 export interface ChatRequest {
   message: string
@@ -13,7 +13,7 @@ export interface ChatStreamOptions {
 
 /**
  * DeepSeek 流式聊天（OpenAI 兼容协议）
- * 前端只请求同源 /api/deepseek/*，key 由 vite 代理注入，避免暴露在浏览器
+ * key 只在服务端（vite 代理 / 边缘函数）注入，不进浏览器
  */
 export async function chatAIStream(data: ChatRequest, { onMessage, onEnd, onError }: ChatStreamOptions = {}) {
   let ended = false
@@ -24,7 +24,7 @@ export async function chatAIStream(data: ChatRequest, { onMessage, onEnd, onErro
   }
 
   try {
-    const res = await fetch(`${baseURL}/api/deepseek/chat/completions`, {
+    const res = await fetch(chatEndpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
