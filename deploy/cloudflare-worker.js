@@ -20,6 +20,7 @@
 
 // 只允许自己的站点使用（如需本地调试直连 worker，把 localhost 两行注释放开）
 const ALLOWED_ORIGINS = [
+  'https://zephyr.songnomii.top',
   'https://wz140037.github.io'
   // 'http://localhost:5173',
   // 'http://localhost:5174'
