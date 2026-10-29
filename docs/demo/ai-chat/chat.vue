@@ -64,8 +64,9 @@ async function send() {
       onEnd() {
         loading.value = false
       },
-      onError() {
-        messages.value[aiIndex].content = "AI 响应失败"
+      onError(err) {
+        console.error("[ai-chat]", err)
+        messages.value[aiIndex].content = "AI 响应失败，请检查 docs/.env 中的 DEEPSEEK_API_KEY"
         loading.value = false
       }
     }

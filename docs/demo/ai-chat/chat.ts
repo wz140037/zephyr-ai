@@ -1,4 +1,4 @@
-import { baseURL } from "../api/config"
+import { baseURL, model } from "../api/config"
 
 export interface ChatRequest {
   message: string
@@ -8,59 +8,75 @@ export interface ChatRequest {
 export interface ChatStreamOptions {
   onMessage?: (text: string) => void
   onEnd?: () => void
-  onError?: (err: any) => void
+  onError?: (err: unknown) => void
 }
 
 /**
- * AI 流式聊天
+ * DeepSeek 流式聊天（OpenAI 兼容协议）
+ * 前端只请求同源 /api/deepseek/*，key 由 vite 代理注入，避免暴露在浏览器
  */
-export async function chatAIStream(data, { onMessage, onEnd, onError }) {
-
-  const res = await fetch(`${baseURL}/api/ai/chat-stream?message=${encodeURIComponent(data.message)}`, {
-    method: "GET",
-    headers: {
-      "Content-Type": "application/json"
-    },
-  }).catch(err => {
-    onError?.(err)
-  }).finally(() => {
+export async function chatAIStream(data: ChatRequest, { onMessage, onEnd, onError }: ChatStreamOptions = {}) {
+  let ended = false
+  const end = () => {
+    if (ended) return
+    ended = true
     onEnd?.()
-  })
-
-  const reader = res?.body?.getReader()
-  if (!reader) return
-  const decoder = new TextDecoder()
-
-  let buffer = ""
-
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
-
-    buffer += decoder.decode(value)
-
-    const lines = buffer.split("\n")
-    buffer = lines.pop() || ""
-
-    for (const line of lines) {
-      if (!line.startsWith("data:")) continue
-
-      const json = line.replace("data:", "").trim()
-
-      try {
-        const obj = JSON.parse(json)
-
-        if (obj.event === "text_chunk") {
-          onMessage?.(obj.data.text)
-        }
-
-        if (obj.event === "workflow_finished") {
-          onEnd?.()
-        }
-
-      } catch { }
-    }
   }
 
-  onEnd?.()
+  try {
+    const res = await fetch(`${baseURL}/api/deepseek/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model,
+        stream: true,
+        messages: [{ role: "user", content: data.message }]
+      })
+    })
+
+    if (!res.ok || !res.body) {
+      const detail = await res.text().catch(() => "")
+      throw new Error(`HTTP ${res.status} ${detail.slice(0, 300)}`)
+    }
+
+    const reader = res.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ""
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+
+      buffer += decoder.decode(value, { stream: true })
+
+      const lines = buffer.split("\n")
+      buffer = lines.pop() ?? ""
+
+      for (const raw of lines) {
+        const line = raw.trim()
+        // 空行是 SSE 的事件分隔符，注释行（: keep-alive）直接跳过
+        if (!line.startsWith("data:")) continue
+
+        const payload = line.slice(5).trim()
+        if (payload === "[DONE]") {
+          end()
+          return
+        }
+
+        try {
+          const obj = JSON.parse(payload)
+          const text = obj?.choices?.[0]?.delta?.content
+          if (text) onMessage?.(text)
+        } catch {
+          // 非 JSON 心跳，忽略
+        }
+      }
+    }
+
+    end()
+  } catch (err) {
+    onError?.(err)
+  }
 }

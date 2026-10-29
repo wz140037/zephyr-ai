@@ -1,4 +1,29 @@
+import { existsSync, readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { defineConfig } from 'vitepress'
+
+// 读取 docs/.env（已 gitignore），让 key 只存在于 Node 侧，不进浏览器产物
+function loadDotEnv() {
+  const file = resolve(process.cwd(), '.env')
+  const env: Record<string, string> = {}
+  if (!existsSync(file)) return env
+  for (const line of readFileSync(file, 'utf-8').split(/\r?\n/)) {
+    if (!line.trim() || line.trim().startsWith('#')) continue
+    const i = line.indexOf('=')
+    if (i < 0) continue
+    const key = line.slice(0, i).trim()
+    env[key] = line.slice(i + 1).trim().replace(/^(['"])(.*)\1$/, '$2')
+  }
+  return env
+}
+
+const dotenv = loadDotEnv()
+const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY || dotenv.DEEPSEEK_API_KEY || ''
+const DEEPSEEK_BASE_URL = process.env.DEEPSEEK_BASE_URL || dotenv.DEEPSEEK_BASE_URL || 'https://api.deepseek.com'
+
+if (!DEEPSEEK_API_KEY) {
+  console.warn('[zephyr-ai] 未找到 DEEPSEEK_API_KEY，请在 docs/.env 中配置，否则 /api/deepseek 会 401')
+}
 
 export default defineConfig({
   base: '/zephyr-ai/',
@@ -22,6 +47,15 @@ export default defineConfig({
         '/localhost': {
           target: 'http://localhost:8080',
           changeOrigin: true
+        },
+        // DeepSeek：前端只请求 /api/deepseek/*，key 由服务端注入
+        '/api/deepseek': {
+          target: DEEPSEEK_BASE_URL,
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/api\/deepseek/, ''),
+          headers: {
+            Authorization: `Bearer ${DEEPSEEK_API_KEY}`
+          }
         }
       }
     }
