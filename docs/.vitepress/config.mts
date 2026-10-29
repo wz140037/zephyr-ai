@@ -31,6 +31,12 @@ if (!currentKey()) {
 
 export default defineConfig({
   base: '/',
+  // 站内链接不带 .html（GitHub Pages 对 /ai-chat 会自动补 .html 返回，地址栏保持 /ai-chat）
+  cleanUrls: true,
+  // 文件保持 docs/demo/ai-chat/，但输出到根路径 /ai-chat（无尾斜杠）
+  rewrites: {
+    'demo/ai-chat/index.md': 'ai-chat.md'
+  },
   title: 'Zephyr AI',
   description: '轻量、实用的 AI 应用示例平台',
   lang: 'zh-CN',
