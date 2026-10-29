@@ -1,12 +1,40 @@
 <script lang="ts" setup>
 import { ref, computed, nextTick } from "vue"
 import { chatAIStream } from "./chat"
+import { authMode } from "../api/config"
 
 const input = ref("")
 const loading = ref(false)
 const conversationId = ref("")
 
 const chatRef = ref<HTMLElement>()
+
+// 访客自带 key：只存在本机 localStorage，不经过任何服务端
+const KEY_STORAGE = "zephyr_ai_key"
+const needKey = authMode === "byok"
+const apiKey = ref(localStorage.getItem(KEY_STORAGE) || "")
+const keyDraft = ref(apiKey.value)
+const editingKey = ref(!apiKey.value)
+
+function saveKey() {
+  const v = keyDraft.value.trim()
+  apiKey.value = v
+  if (v) localStorage.setItem(KEY_STORAGE, v)
+  else localStorage.removeItem(KEY_STORAGE)
+  editingKey.value = !v
+}
+
+function clearKey() {
+  apiKey.value = ""
+  keyDraft.value = ""
+  localStorage.removeItem(KEY_STORAGE)
+  editingKey.value = true
+}
+
+const maskedKey = computed(() => {
+  const k = apiKey.value
+  return k.length > 10 ? `${k.slice(0, 5)}****${k.slice(-4)}` : k
+})
 
 const messages = ref([
   {
@@ -16,7 +44,7 @@ const messages = ref([
 ])
 
 const disabled = computed(() => {
-  return !input.value.trim() || loading.value
+  return !input.value.trim() || loading.value || (needKey && !apiKey.value)
 })
 
 function scrollBottom() {
@@ -30,6 +58,10 @@ function scrollBottom() {
 
 async function send() {
   if (!input.value.trim() || loading.value) return
+  if (needKey && !apiKey.value) {
+    editingKey.value = true
+    return
+  }
 
   scrollBottom()
   const question = input.value
@@ -69,7 +101,8 @@ async function send() {
         const detail = err instanceof Error ? err.message : String(err)
         messages.value[aiIndex].content = `AI 响应失败：${detail}`
         loading.value = false
-      }
+      },
+      apiKey: needKey ? apiKey.value : undefined
     }
   )
 }
@@ -85,6 +118,25 @@ async function send() {
       <div class="chat-header">
         <div class="dot"></div>
         AI 智能问答
+      </div>
+
+      <!-- 访客自带 key：只在没配服务端代理时出现 -->
+      <div v-if="needKey" class="key-bar">
+        <template v-if="editingKey">
+          <input
+            v-model="keyDraft"
+            type="password"
+            placeholder="粘贴你的 DeepSeek API Key（sk- 开头）"
+            @keydown.enter="saveKey"
+          />
+          <button class="key-btn" @click="saveKey">保存</button>
+          <a class="key-link" href="https://platform.deepseek.com/api_keys" target="_blank" rel="noopener">去申请</a>
+        </template>
+        <template v-else>
+          <span class="key-ok">已使用本机 key：{{ maskedKey }}</span>
+          <span class="key-tip">仅存在浏览器本地，不会上传</span>
+          <button class="key-btn ghost" @click="clearKey">清除</button>
+        </template>
       </div>
 
       <div class="chat-window" ref="chatRef">
@@ -181,6 +233,60 @@ async function send() {
   height: 10px;
   border-radius: 50%;
   background: linear-gradient(135deg, #6fb5ff, #8b6bff);
+}
+
+/* 访客自带的 key 提示条 */
+.key-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 10px 18px;
+  border-bottom: 1px solid #eee;
+  background: #fbfcff;
+  font-size: 13px;
+
+  input {
+    flex: 1;
+    min-width: 220px;
+    padding: 8px 10px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+
+    &:focus {
+      outline: none;
+      border-color: #6fb5ff;
+      box-shadow: 0 0 0 3px rgba(111, 181, 255, .2);
+    }
+  }
+}
+
+.key-btn {
+  padding: 8px 14px;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #6fb5ff, #8b6bff);
+  color: #fff;
+  cursor: pointer;
+
+  &.ghost {
+    background: #eef2ff;
+    color: #5f6575;
+  }
+}
+
+.key-link {
+  color: #6fb5ff;
+  text-decoration: none;
+}
+
+.key-ok {
+  color: #2f9e44;
+}
+
+.key-tip {
+  font-size: 12px;
+  color: #9aa3b2;
 }
 
 /* chat window */

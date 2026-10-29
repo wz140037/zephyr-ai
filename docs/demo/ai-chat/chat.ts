@@ -9,13 +9,15 @@ export interface ChatStreamOptions {
   onMessage?: (text: string) => void
   onEnd?: () => void
   onError?: (err: unknown) => void
+  /** byok 模式下由访客提供的 key，直接放 Authorization 头 */
+  apiKey?: string
 }
 
 /**
  * DeepSeek 流式聊天（OpenAI 兼容协议）
- * key 只在服务端（vite 代理 / 边缘函数）注入，不进浏览器
+ * dev / proxy 模式 key 由服务端注入；byok 模式由访客自带
  */
-export async function chatAIStream(data: ChatRequest, { onMessage, onEnd, onError }: ChatStreamOptions = {}) {
+export async function chatAIStream(data: ChatRequest, { onMessage, onEnd, onError, apiKey }: ChatStreamOptions = {}) {
   let ended = false
   const end = () => {
     if (ended) return
@@ -24,11 +26,14 @@ export async function chatAIStream(data: ChatRequest, { onMessage, onEnd, onErro
   }
 
   try {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json"
+    }
+    if (apiKey) headers.Authorization = `Bearer ${apiKey}`
+
     const res = await fetch(chatEndpoint, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
+      headers,
       body: JSON.stringify({
         model,
         stream: true,
