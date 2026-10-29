@@ -30,12 +30,12 @@ if (!currentKey()) {
 }
 
 export default defineConfig({
-  base: '/zephyr-ai/',
+  base: '/',
   title: 'Zephyr AI',
   description: '轻量、实用的 AI 应用示例平台',
   lang: 'zh-CN',
   head: [
-    ['link', { rel: 'icon', type: 'image/svg+xml', href: '/zephyr-ai/image/logo.svg' }],
+    ['link', { rel: 'icon', type: 'image/svg+xml', href: '/image/logo.svg' }],
   ],
   themeConfig: {
     logo: '/image/logo.svg',
