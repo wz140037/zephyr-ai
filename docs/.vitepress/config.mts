@@ -42,6 +42,8 @@ export default defineConfig({
   lang: 'zh-CN',
   head: [
     ['link', { rel: 'icon', type: 'image/svg+xml', href: '/image/logo.svg' }],
+    // 兜底：http 打开自己的域名时强制跳 https（否则 Origin 是 http://，Worker 白名单只放行 https，对话会 403）
+    ['script', {}, "if(location.protocol==='http:'&&/(^|\\.)songnomii\\.top$/.test(location.hostname)){location.replace('https://'+location.host+location.pathname+location.search)}"],
   ],
   themeConfig: {
     logo: '/image/logo.svg',
