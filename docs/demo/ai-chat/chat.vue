@@ -66,7 +66,8 @@ async function send() {
       },
       onError(err) {
         console.error("[ai-chat]", err)
-        messages.value[aiIndex].content = "AI 响应失败，请检查 docs/.env 中的 DEEPSEEK_API_KEY"
+        const detail = err instanceof Error ? err.message : String(err)
+        messages.value[aiIndex].content = `AI 响应失败：${detail}`
         loading.value = false
       }
     }

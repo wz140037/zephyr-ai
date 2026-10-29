@@ -18,10 +18,14 @@ function loadDotEnv() {
 }
 
 const dotenv = loadDotEnv()
-const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY || dotenv.DEEPSEEK_API_KEY || ''
 const DEEPSEEK_BASE_URL = process.env.DEEPSEEK_BASE_URL || dotenv.DEEPSEEK_BASE_URL || 'https://api.deepseek.com'
 
-if (!DEEPSEEK_API_KEY) {
+// 每次请求都重读 .env：改完 key 不用重启 dev server
+function currentKey() {
+  return process.env.DEEPSEEK_API_KEY || loadDotEnv().DEEPSEEK_API_KEY || ''
+}
+
+if (!currentKey()) {
   console.warn('[zephyr-ai] 未找到 DEEPSEEK_API_KEY，请在 docs/.env 中配置，否则 /api/deepseek 会 401')
 }
 
@@ -53,8 +57,11 @@ export default defineConfig({
           target: DEEPSEEK_BASE_URL,
           changeOrigin: true,
           rewrite: (path) => path.replace(/^\/api\/deepseek/, ''),
-          headers: {
-            Authorization: `Bearer ${DEEPSEEK_API_KEY}`
+          configure: (proxy) => {
+            proxy.on('proxyReq', (proxyReq) => {
+              const key = currentKey()
+              if (key) proxyReq.setHeader('Authorization', `Bearer ${key}`)
+            })
           }
         }
       }
