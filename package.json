@@ -8,7 +8,8 @@
     "build:demos": "pnpm --filter demos build",
     "docs:dev": "pnpm --filter docs docs:dev",
     "docs:build": "pnpm --filter docs docs:build",
-    "docs:deploy": "gh-pages -d docs/.vitepress/dist -b pages -f"
+    "docs:deploy": "gh-pages -d docs/.vitepress/dist -b pages -f",
+    "docs:publish": "pnpm docs:build && pnpm docs:deploy"
   },
   "devDependencies": {
     "gh-pages": "^6.3.0"

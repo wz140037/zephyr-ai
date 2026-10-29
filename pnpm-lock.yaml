@@ -49,8 +49,6 @@ importers:
         specifier: ^3.5.26
         version: 3.5.26(typescript@5.9.3)
 
-  packages/core: {}
-
 packages:
 
   '@algolia/abtesting@1.15.1':
