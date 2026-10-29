@@ -1,0 +1,36 @@
+:root{
+  /* --vp-home-hero-name-color: #6fb5ff; */
+}
+
+.VPFeatures .box {
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+
+.VPFeatures .box >h2 {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transform: translate(10px,-5px);
+}
+
+.VPFeatures .box >.VPImage{
+  margin-bottom: 0;
+}
+
+/* 隐藏aside */
+.VPContent .VPDoc.has-aside .aside{
+  display: none;
+}
+
+/* container占满整个页面 */
+.VPContent .VPDoc.has-aside{
+  padding: 0;
+}
+
+.VPContent .VPDoc.has-aside .container,
+.VPContent .VPDoc.has-aside .content-container,
+.VPContent .VPDoc.has-aside .content{
+  max-width: 100%;
+  padding: 0;
+}

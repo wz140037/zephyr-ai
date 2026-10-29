@@ -1,0 +1,28 @@
+# ===== dependencies =====
+node_modules/
+.pnpm-store/
+
+# ===== build =====
+dist/
+build/
+.cache/
+**/.vitepress/cache/
+
+# ===== logs =====
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ===== env =====
+.env
+.env.*
+!.env.example
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+
+# ===== IDE =====
+.vscode/
+.idea/
