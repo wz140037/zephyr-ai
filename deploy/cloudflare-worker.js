@@ -4,48 +4,63 @@
  * 作用：GitHub Pages 是纯静态托管，无法安全持有 API key。
  *      这个 Worker 充当中间人：浏览器只打到它，key 存在 Worker 的 Secret 里。
  *
+ * 安全策略：
+ *   - 只放行白名单里的来源（Origin / Referer），其余一律 403
+ *   - 只接受 POST，只透传 model / stream / messages，不做任意转发
+ *   - 不提供任何 GET 自检响应，避免暴露 key 状态
+ *   注意：Origin 头可以被脚本伪造，这是"提高门槛"而非"真锁"。
+ *        真正的损失上限靠"专用 key + 低余额"兜底。
+ *
  * 部署步骤：
- *   1. 打开 https://dash.cloudflare.com → Workers & Pages → Create → Worker
- *   2. 把本文件内容整个粘贴进去 → Deploy
- *   3. 进入该 Worker → Settings → Variables and Secrets → Add
- *        Type: Secret   Name: DEEPSEEK_API_KEY   Value: sk-你的key
- *   4. 记下地址，形如 https://zephyr-ai.xxx.workers.dev
- *   5. 本地建 docs/.env.production，写入：
- *        VITE_API_BASE_URL=https://zephyr-ai.xxx.workers.dev
- *   6. pnpm docs:publish   （重新构建 + 发布到 pages 分支）
+ *   1. Cloudflare Dashboard → Workers & Pages → zephyr-ai-proxy → Edit code
+ *   2. 全选删除，粘贴本文件内容 → Deploy
+ *   3. Settings → Variables and Secrets → 添加 Secret：DEEPSEEK_API_KEY
+ *   4. 前端 docs/.env.production 里配 VITE_API_BASE_URL=https://<你的worker地址>
  */
 
+// 只允许自己的站点使用（如需本地调试直连 worker，把 localhost 两行注释放开）
 const ALLOWED_ORIGINS = [
-  'https://wz140037.github.io',
-  'http://localhost:5173',
-  'http://localhost:5174'
+  'https://wz140037.github.io'
+  // 'http://localhost:5173',
+  // 'http://localhost:5174'
 ]
 
-function corsHeaders(origin) {
-  const allow = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0]
-  return {
-    'Access-Control-Allow-Origin': allow,
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'content-type',
-    'Access-Control-Max-Age': '86400'
+function isAllowed(origin) {
+  return ALLOWED_ORIGINS.includes(origin.replace(/\/$/, ''))
+}
+
+// 优先看 Origin；没有 Origin 时退回看 Referer（https://site/xxx → https://site）
+function resolveSource(request) {
+  const origin = request.headers.get('Origin')
+  if (origin) return origin.replace(/\/$/, '')
+
+  const referer = request.headers.get('Referer')
+  if (!referer) return ''
+  try {
+    return new URL(referer).origin
+  } catch {
+    return ''
   }
 }
 
 export default {
   async fetch(request, env) {
-    const origin = request.headers.get('Origin') || ''
-    const cors = corsHeaders(origin)
+    const source = resolveSource(request)
+
+    if (!isAllowed(source)) {
+      return new Response('Forbidden', { status: 403 })
+    }
+
+    const cors = {
+      'Access-Control-Allow-Origin': source,
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'content-type',
+      'Access-Control-Max-Age': '86400',
+      Vary: 'Origin'
+    }
 
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: cors })
-    }
-
-    // 浏览器直接打开时给个自检信息，方便确认是否部署成功
-    if (request.method === 'GET') {
-      return new Response(
-        `zephyr-ai deepseek proxy: ok\nkey configured: ${Boolean(env.DEEPSEEK_API_KEY)}`,
-        { status: 200, headers: { ...cors, 'Content-Type': 'text/plain; charset=utf-8' } }
-      )
     }
 
     if (request.method !== 'POST') {
@@ -63,7 +78,7 @@ export default {
       return json({ error: 'invalid json' }, 400, cors)
     }
 
-    // 只透传白名单字段，避免这个代理被当成任意请求转发器
+    // 只透传白名单字段
     const payload = {
       model: body.model || 'deepseek-chat',
       stream: body.stream === true,
