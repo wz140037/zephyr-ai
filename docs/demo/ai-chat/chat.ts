@@ -1,7 +1,13 @@
-import { chatEndpoint, model } from "../api/config"
+import { chatEndpoint, model, systemPrompt } from "../api/config"
+
+export interface ChatMessage {
+  role: "system" | "user" | "assistant"
+  content: string
+}
 
 export interface ChatRequest {
-  message: string
+  /** 完整对话历史（调用方维护；system 由内部补在最前面） */
+  messages: ChatMessage[]
   conversationId?: string
 }
 
@@ -31,13 +37,18 @@ export async function chatAIStream(data: ChatRequest, { onMessage, onEnd, onErro
     }
     if (apiKey) headers.Authorization = `Bearer ${apiKey}`
 
+    // system 放最前面，后面接完整多轮历史，模型才能看见上文
+    const payload: ChatMessage[] = systemPrompt
+      ? [{ role: "system", content: systemPrompt }, ...data.messages]
+      : [...data.messages]
+
     const res = await fetch(chatEndpoint, {
       method: "POST",
       headers,
       body: JSON.stringify({
         model,
         stream: true,
-        messages: [{ role: "user", content: data.message }]
+        messages: payload
       })
     })
 

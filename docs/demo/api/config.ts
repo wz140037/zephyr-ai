@@ -16,3 +16,9 @@ export const chatEndpoint =
 
 // DeepSeek 模型：deepseek-chat（通用）/ deepseek-reasoner（推理）
 export const model = env.VITE_DEEPSEEK_MODEL ?? 'deepseek-chat'
+
+// 系统提示词：决定回答风格和边界。可用 VITE_SYSTEM_PROMPT 覆盖
+export const systemPrompt =
+  env.VITE_SYSTEM_PROMPT ??
+  '你是 Zephyr AI 助手。回答简洁、准确、有条理；讲步骤或做对比时用 Markdown 列表或表格。' +
+  '不确定的内容要明确说明不确定，不要编造。'

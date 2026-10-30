@@ -109,6 +109,11 @@ const messages = ref([
   }
 ])
 
+// 传给 API 的多轮历史。UI 里的欢迎语是装饰，不进上下文。
+// 只保留最近若干条，避免长对话把 token 顶爆。
+const MAX_HISTORY = 20
+const history = ref<{ role: "user" | "assistant"; content: string }[]>([])
+
 const disabled = computed(() => {
   return !input.value.trim() || loading.value || (needKey && !apiKey.value)
 })
@@ -150,11 +155,14 @@ async function send() {
     content: ""
   })
 
+  // 进上下文：这一轮的提问
+  history.value.push({ role: "user", content: question })
+
   loading.value = true
 
   chatAIStream(
     {
-      message: question,
+      messages: [...history.value],
       conversationId: conversationId.value
     },
     {
@@ -164,11 +172,25 @@ async function send() {
       },
       onEnd() {
         loading.value = false
+
+        // 这一轮答完了，把完整回答并进上下文
+        const answer = messages.value[aiIndex].content
+        if (!answer.trim()) return
+
+        history.value.push({ role: "assistant", content: answer })
+
+        if (history.value.length > MAX_HISTORY) {
+          history.value.splice(0, history.value.length - MAX_HISTORY)
+        }
+        // 截断后保证第一条不是 assistant，符合对话时序
+        if (history.value[0]?.role === "assistant") history.value.shift()
       },
       onError(err) {
         console.error("[ai-chat]", err)
         const detail = err instanceof Error ? err.message : String(err)
         messages.value[aiIndex].content = `AI 响应失败：${detail}`
+        // 这轮没答上来，把刚压入的提问撤回，别让下一轮带上一个没人回答的问题
+        if (history.value[history.value.length - 1]?.role === "user") history.value.pop()
         loading.value = false
       },
       apiKey: needKey ? apiKey.value : undefined
