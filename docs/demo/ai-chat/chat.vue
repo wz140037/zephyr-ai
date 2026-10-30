@@ -1,7 +1,17 @@
 <script lang="ts" setup>
 import { ref, computed, nextTick } from "vue"
+import MarkdownIt from "markdown-it"
 import { chatAIStream } from "./chat"
 import { authMode } from "../api/config"
+
+// 渲染 AI 回答的 Markdown。html:false 不解析原始 HTML，天然防 XSS
+const md = new MarkdownIt({ html: false, linkify: true, breaks: true })
+// 只放行安全协议，挡掉 javascript: 之类
+md.validateLink = (url: string) => /^(https?:|mailto:|#|\/)/i.test(url)
+
+function renderMd(text: string) {
+  return md.render(text || "")
+}
 
 const input = ref("")
 const loading = ref(false)
@@ -154,7 +164,8 @@ async function send() {
       <div class="chat-window" ref="chatRef">
 
         <div v-for="(msg, index) in messages" :key="index" :class="['msg', msg.role]">
-          {{ msg.content }}
+          <div v-if="msg.role === 'ai'" class="md" v-html="renderMd(msg.content)"></div>
+          <template v-else>{{ msg.content }}</template>
         </div>
 
         <!-- typing -->
@@ -333,6 +344,120 @@ async function send() {
   }
 }
 
+/* AI 回答的 Markdown 内容（v-html 渲染，需 :deep 穿透 scoped） */
+.md {
+  min-width: 0;
+  word-break: break-word;
+
+  :deep(> :first-child) {
+    margin-top: 0;
+  }
+
+  :deep(> :last-child) {
+    margin-bottom: 0;
+  }
+
+  :deep(p) {
+    margin: 0 0 8px;
+  }
+
+  :deep(h1),
+  :deep(h2),
+  :deep(h3),
+  :deep(h4),
+  :deep(h5),
+  :deep(h6) {
+    font-size: 15px;
+    font-weight: 600;
+    margin: 14px 0 6px;
+  }
+
+  :deep(ul),
+  :deep(ol) {
+    margin: 6px 0;
+    padding-left: 22px;
+  }
+
+  :deep(li) {
+    margin: 3px 0;
+  }
+
+  :deep(li > p) {
+    margin: 0;
+  }
+
+  :deep(code) {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 13px;
+    padding: 1px 5px;
+    border-radius: 4px;
+    background: rgba(139, 107, 255, 0.1);
+    color: #5a4bd6;
+  }
+
+  :deep(pre) {
+    margin: 10px 0;
+    padding: 12px 14px;
+    border-radius: 8px;
+    background: #1e1f2b;
+    overflow-x: auto;
+
+    code {
+      background: none;
+      color: #e6e6f0;
+      padding: 0;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+  }
+
+  :deep(a) {
+    color: #4f8ef7;
+    text-decoration: underline;
+    word-break: break-all;
+  }
+
+  :deep(blockquote) {
+    margin: 8px 0;
+    padding: 2px 0 2px 12px;
+    border-left: 3px solid #dfe3f0;
+    color: #5f6575;
+  }
+
+  :deep(table) {
+    display: block;
+    width: 100%;
+    margin: 10px 0;
+    border-collapse: collapse;
+    font-size: 13px;
+    overflow-x: auto;
+  }
+
+  :deep(th),
+  :deep(td) {
+    padding: 6px 10px;
+    border: 1px solid #e6ebff;
+    text-align: left;
+    white-space: nowrap;
+  }
+
+  :deep(th) {
+    background: #f5f7ff;
+    font-weight: 600;
+  }
+
+  :deep(hr) {
+    margin: 12px 0;
+    border: none;
+    border-top: 1px solid #e6ebff;
+  }
+
+  :deep(img) {
+    max-width: 100%;
+    border-radius: 6px;
+  }
+}
+
 /* typing */
 .typing {
   display: flex;
@@ -426,7 +551,8 @@ async function send() {
 /* capability */
 .caps {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  /* 自适应列数：宽屏 3 列，平板 2 列，手机 1 列，不需要媒体查询也不会挤爆 */
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 18px;
 }
 
@@ -503,5 +629,126 @@ async function send() {
       #8b6bff,
       transparent);
   opacity: .6;
+}
+/* ============ 响应式 ============ */
+
+@media (max-width: 1024px) {
+  .chat-ai_container {
+    padding: 16px;
+    gap: 18px;
+  }
+
+  .msg {
+    max-width: 78%;
+  }
+}
+
+/* 手机：竖屏主流宽度 320 ~ 430px */
+@media (max-width: 640px) {
+  .chat-ai_container {
+    /* 移动端不能用 85vh 锁高：浏览器地址栏、键盘都会改可视高度，容易把内容裁掉 */
+    height: auto;
+    min-height: 0;
+    padding: 0;
+    gap: 12px;
+    overflow: visible;
+  }
+
+  .chat-card {
+    /* 聊天区固定高度、内部滚动，键盘弹出也不会顶飞布局 */
+    height: 66dvh;
+    min-height: 340px;
+    border-radius: 12px;
+  }
+
+  .chat-header {
+    padding: 10px 14px;
+    font-size: 13px;
+  }
+
+  .chat-window {
+    padding: 12px;
+    gap: 10px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .msg {
+    max-width: 88%;
+    padding: 9px 12px;
+    font-size: 14px;
+  }
+
+  .chat-input {
+    gap: 8px;
+    padding: 10px;
+    padding-bottom: max(10px, env(safe-area-inset-bottom));
+
+    input {
+      /* 关键：flex 子项默认 min-width:auto，会把容器撑破 */
+      min-width: 0;
+      /* iOS 上小于 16px 会触发输入框自动缩放 */
+      font-size: 16px;
+      padding: 9px 12px;
+    }
+  }
+
+  .send-btn {
+    flex: 0 0 auto;
+    width: auto;
+    min-width: 68px;
+    padding: 0 14px;
+    font-size: 14px;
+  }
+
+  .caps {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .cap {
+    padding: 16px;
+  }
+
+  .cap h3 {
+    font-size: 15px;
+    margin-bottom: 6px;
+  }
+
+  .cap p {
+    font-size: 13px;
+  }
+
+  .key-bar {
+    padding: 8px 14px;
+
+    input {
+      min-width: 0;
+      font-size: 16px;
+    }
+  }
+}
+
+/* 超窄屏：iPhone SE / 小屏安卓 */
+@media (max-width: 380px) {
+  .msg {
+    max-width: 92%;
+  }
+
+  .send-btn {
+    min-width: 60px;
+    padding: 0 10px;
+    font-size: 13px;
+  }
+}
+
+/* 横屏手机：可视高度很矮，只留聊天区 */
+@media (max-width: 900px) and (max-height: 500px) {
+  .chat-card {
+    height: 78dvh;
+  }
+
+  .caps {
+    display: none;
+  }
 }
 </style>
