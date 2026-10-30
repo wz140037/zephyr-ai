@@ -11,7 +11,7 @@ hero:
   actions:
     - theme: brand
       text: 🚀 开始体验
-      link: /demo/ai-chat
+      link: /ai-chat
     - theme: alt
       text: 📦 GitHub
       link: https://github.com/你的github用户名/zephyr-ai
@@ -21,7 +21,7 @@ features:
       src: /icons/chat.svg
     title: AI 智能问答
     details: 基于大语言模型实现实时聊天问答，支持 Dify Workflow 调用与 Java 后端 API 集成。
-    link: /demo/ai-chat
+    link: /ai-chat
 
   - icon:
       src: /icons/knowledge.svg

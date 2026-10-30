@@ -1,7 +1,13 @@
-import { baseURL, model } from "../api/config"
+import { chatEndpoint, model, systemPrompt } from "../api/config"
+
+export interface ChatMessage {
+  role: "system" | "user" | "assistant"
+  content: string
+}
 
 export interface ChatRequest {
-  message: string
+  /** 完整对话历史（调用方维护；system 由内部补在最前面） */
+  messages: ChatMessage[]
   conversationId?: string
 }
 
@@ -9,13 +15,15 @@ export interface ChatStreamOptions {
   onMessage?: (text: string) => void
   onEnd?: () => void
   onError?: (err: unknown) => void
+  /** byok 模式下由访客提供的 key，直接放 Authorization 头 */
+  apiKey?: string
 }
 
 /**
  * DeepSeek 流式聊天（OpenAI 兼容协议）
- * 前端只请求同源 /api/deepseek/*，key 由 vite 代理注入，避免暴露在浏览器
+ * dev / proxy 模式 key 由服务端注入；byok 模式由访客自带
  */
-export async function chatAIStream(data: ChatRequest, { onMessage, onEnd, onError }: ChatStreamOptions = {}) {
+export async function chatAIStream(data: ChatRequest, { onMessage, onEnd, onError, apiKey }: ChatStreamOptions = {}) {
   let ended = false
   const end = () => {
     if (ended) return
@@ -24,15 +32,23 @@ export async function chatAIStream(data: ChatRequest, { onMessage, onEnd, onErro
   }
 
   try {
-    const res = await fetch(`${baseURL}/api/deepseek/chat/completions`, {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json"
+    }
+    if (apiKey) headers.Authorization = `Bearer ${apiKey}`
+
+    // system 放最前面，后面接完整多轮历史，模型才能看见上文
+    const payload: ChatMessage[] = systemPrompt
+      ? [{ role: "system", content: systemPrompt }, ...data.messages]
+      : [...data.messages]
+
+    const res = await fetch(chatEndpoint, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
+      headers,
       body: JSON.stringify({
         model,
         stream: true,
-        messages: [{ role: "user", content: data.message }]
+        messages: payload
       })
     })
 

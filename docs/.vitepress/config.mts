@@ -18,20 +18,32 @@ function loadDotEnv() {
 }
 
 const dotenv = loadDotEnv()
-const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY || dotenv.DEEPSEEK_API_KEY || ''
 const DEEPSEEK_BASE_URL = process.env.DEEPSEEK_BASE_URL || dotenv.DEEPSEEK_BASE_URL || 'https://api.deepseek.com'
 
-if (!DEEPSEEK_API_KEY) {
+// 每次请求都重读 .env：改完 key 不用重启 dev server
+function currentKey() {
+  return process.env.DEEPSEEK_API_KEY || loadDotEnv().DEEPSEEK_API_KEY || ''
+}
+
+if (!currentKey()) {
   console.warn('[zephyr-ai] 未找到 DEEPSEEK_API_KEY，请在 docs/.env 中配置，否则 /api/deepseek 会 401')
 }
 
 export default defineConfig({
-  base: '/zephyr-ai/',
+  base: '/',
+  // 站内链接不带 .html（GitHub Pages 对 /ai-chat 会自动补 .html 返回，地址栏保持 /ai-chat）
+  cleanUrls: true,
+  // 文件保持 docs/demo/ai-chat/，但输出到根路径 /ai-chat（无尾斜杠）
+  rewrites: {
+    'demo/ai-chat/index.md': 'ai-chat.md'
+  },
   title: 'Zephyr AI',
   description: '轻量、实用的 AI 应用示例平台',
   lang: 'zh-CN',
   head: [
-    ['link', { rel: 'icon', type: 'image/svg+xml', href: '/zephyr-ai/image/logo.svg' }],
+    ['link', { rel: 'icon', type: 'image/svg+xml', href: '/image/logo.svg' }],
+    // 兜底：http 打开自己的域名时强制跳 https（否则 Origin 是 http://，Worker 白名单只放行 https，对话会 403）
+    ['script', {}, "if(location.protocol==='http:'&&/(^|\\.)songnomii\\.top$/.test(location.hostname)){location.replace('https://'+location.host+location.pathname+location.search)}"],
   ],
   themeConfig: {
     logo: '/image/logo.svg',
@@ -53,8 +65,11 @@ export default defineConfig({
           target: DEEPSEEK_BASE_URL,
           changeOrigin: true,
           rewrite: (path) => path.replace(/^\/api\/deepseek/, ''),
-          headers: {
-            Authorization: `Bearer ${DEEPSEEK_API_KEY}`
+          configure: (proxy) => {
+            proxy.on('proxyReq', (proxyReq) => {
+              const key = currentKey()
+              if (key) proxyReq.setHeader('Authorization', `Bearer ${key}`)
+            })
           }
         }
       }
