@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ref, computed, nextTick } from "vue"
+import { ref, computed, nextTick, onMounted, onUnmounted } from "vue"
 import MarkdownIt from "markdown-it"
 import { chatAIStream } from "./chat"
 import { authMode } from "../api/config"
@@ -18,6 +18,50 @@ const loading = ref(false)
 const conversationId = ref("")
 
 const chatRef = ref<HTMLElement>()
+const rootRef = ref<HTMLElement>()
+
+// 移动端把聊天区锁成「一屏高」，让输入框永远在底部可见。
+// VitePress 的 Nav / LocalNav 高度各机型不一致，纯 CSS 算不准，这里按实际位置量一次。
+const MOBILE_MAX = 640
+const fillHeight = ref(0)
+
+function measureHeight() {
+  if (typeof window === "undefined") return
+  const el = rootRef.value
+  if (!el || window.innerWidth > MOBILE_MAX) {
+    fillHeight.value = 0
+    return
+  }
+  // visualViewport 会随软键盘收缩，用它算高度，键盘弹出时输入框自然贴着键盘上沿。
+  // 留 8px 余量，避免把页面撑出滚动条。
+  const vh = window.visualViewport?.height ?? window.innerHeight
+  const top = el.getBoundingClientRect().top
+  fillHeight.value = Math.max(320, Math.round(vh - top - 8))
+}
+
+// 用户往上翻历史时，别被新消息强行拉回底部
+let stickToBottom = true
+
+function onChatScroll() {
+  const el = chatRef.value
+  if (!el) return
+  stickToBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80
+}
+
+onMounted(() => {
+  measureHeight()
+  window.addEventListener("resize", measureHeight)
+  window.addEventListener("orientationchange", measureHeight)
+  window.visualViewport?.addEventListener("resize", measureHeight)
+  chatRef.value?.addEventListener("scroll", onChatScroll, { passive: true })
+})
+
+onUnmounted(() => {
+  window.removeEventListener("resize", measureHeight)
+  window.removeEventListener("orientationchange", measureHeight)
+  window.visualViewport?.removeEventListener("resize", measureHeight)
+  chatRef.value?.removeEventListener("scroll", onChatScroll)
+})
 
 // 访客自带 key：只存在本机 localStorage，不经过任何服务端
 // 注意：构建时 VitePress 会做 SSR，服务端没有 localStorage，必须判存在
@@ -69,12 +113,13 @@ const disabled = computed(() => {
   return !input.value.trim() || loading.value || (needKey && !apiKey.value)
 })
 
-function scrollBottom() {
+function scrollBottom(force = false) {
+  if (!force && !stickToBottom) return
   nextTick(() => {
-    chatRef.value?.scrollTo({
-      top: chatRef.value.scrollHeight,
-      behavior: "smooth"
-    })
+    const el = chatRef.value
+    if (!el) return
+    // 流式输出期间不要用 smooth，连续调用会互相打断、抖动
+    el.scrollTop = el.scrollHeight
   })
 }
 
@@ -85,7 +130,9 @@ async function send() {
     return
   }
 
-  scrollBottom()
+  // 主动发消息时强制回到底部，并重新跟随
+  stickToBottom = true
+  scrollBottom(true)
   const question = input.value
 
   messages.value.push({
@@ -132,7 +179,7 @@ async function send() {
 </script>
 
 <template>
-  <div class="chat-ai_container">
+  <div class="chat-ai_container" ref="rootRef" :style="fillHeight ? { height: fillHeight + 'px' } : undefined">
 
     <!-- Chat -->
     <div class="chat-card">
@@ -646,19 +693,25 @@ async function send() {
 /* 手机：竖屏主流宽度 320 ~ 430px */
 @media (max-width: 640px) {
   .chat-ai_container {
-    /* 移动端不能用 85vh 锁高：浏览器地址栏、键盘都会改可视高度，容易把内容裁掉 */
-    height: auto;
-    min-height: 0;
+    /* JS 会写入精确高度；这行是 JS 未生效时的兜底（Nav 48 + LocalNav 48） */
+    height: calc(100dvh - 96px);
+    min-height: 320px;
     padding: 0;
-    gap: 12px;
-    overflow: visible;
+    gap: 0;
+    overflow: hidden;
   }
 
+  /* 卡片撑满一屏 → 输入框天然贴底，内容再多也不会把它挤出屏幕 */
   .chat-card {
-    /* 聊天区固定高度、内部滚动，键盘弹出也不会顶飞布局 */
-    height: 66dvh;
-    min-height: 340px;
-    border-radius: 12px;
+    height: 100%;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+  }
+
+  /* 手机上专注聊天，能力卡片不再占位（整页已不可滚动） */
+  .caps {
+    display: none;
   }
 
   .chat-header {
@@ -742,9 +795,17 @@ async function send() {
 }
 
 /* 横屏手机：可视高度很矮，只留聊天区 */
-@media (max-width: 900px) and (max-height: 500px) {
+/* 横屏手机：宽 844 会被当成桌面，但高度只有 390 左右，必须收紧 */
+@media (max-height: 520px) and (orientation: landscape) {
+  .chat-ai_container {
+    height: 100dvh;
+    padding: 8px;
+    gap: 8px;
+    overflow: hidden;
+  }
+
   .chat-card {
-    height: 78dvh;
+    height: 100%;
   }
 
   .caps {
